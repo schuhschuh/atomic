@@ -1,35 +1,6 @@
 from functools import total_ordering
 
-from cffi import FFI
-
-
-ffi = FFI()
-
-ffi.cdef("""
-void long_store(long *, long *);
-long long_add_and_fetch(long *, long);
-long long_sub_and_fetch(long *, long);
-long long_get_and_set(long *, long);
-long long_compare_and_set(long *, long *, long);
-""")
-
-atomic = ffi.verify("""
-void long_store(long *v, long *n) {
-    __atomic_store(v, n, __ATOMIC_SEQ_CST);
-};
-long long_add_and_fetch(long *v, long i) {
-    return __atomic_add_fetch(v, i, __ATOMIC_SEQ_CST);
-};
-long long_sub_and_fetch(long *v, long i) {
-    return __atomic_sub_fetch(v, i, __ATOMIC_SEQ_CST);
-};
-long long_get_and_set(long *v, long n) {
-    return __atomic_exchange_n(v, n, __ATOMIC_SEQ_CST);
-};
-long long_compare_and_set(long *v, long *e, long n) {
-    return __atomic_compare_exchange_n(v, e, n, 0, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
-};
-""")
+from .detail import AtomicLong as _AtomicLong
 
 
 @total_ordering
@@ -43,7 +14,7 @@ class AtomicLong(object):
 
         :param value: initial value
         """
-        self._value = ffi.new('long *', value)
+        self._atomic = _AtomicLong(0 if value is None else int(value))
 
     def __repr__(self):
         return '<{0} at 0x{1:x}: {2!r}>'.format(
@@ -51,18 +22,18 @@ class AtomicLong(object):
 
     @property
     def value(self):
-        return self._value[0]
+        return self._atomic.value
 
     @value.setter
     def value(self, new):
-        atomic.long_store(self._value, ffi.new('long *', new))
+        self._atomic.value = int(new)
 
     def __iadd__(self, inc):
-        atomic.long_add_and_fetch(self._value, inc)
+        self._atomic.add(int(inc))
         return self
 
     def __isub__(self, dec):
-        atomic.long_sub_and_fetch(self._value, dec)
+        self._atomic.sub(int(dec))
         return self
 
     def get_and_set(self, new_value):
@@ -70,7 +41,7 @@ class AtomicLong(object):
 
         :param new_value: the new value
         """
-        return atomic.long_get_and_set(self._value, new_value)
+        return self._atomic.get_and_set(int(new_value))
 
     def swap(self, new_value):
         return self.get_and_set(new_value)
@@ -83,7 +54,7 @@ class AtomicLong(object):
         :param expect_value: the expected value
         :param new_value: the new value
         """
-        return bool(atomic.long_compare_and_set(self._value, ffi.new('long *', expect_value), new_value))
+        return self._atomic.compare_and_set(int(expect_value), int(new_value))
 
     def compare_and_swap(self, expect_value, new_value):
         return self.compare_and_set(expect_value, new_value)
