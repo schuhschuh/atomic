@@ -13,19 +13,6 @@ class BinaryDistribution(Distribution):
         # pylint: disable=R0201
         return False
 
-class GetPybindInclude(object):
-    """Helper class to determine the pybind11 include path
-    The purpose of this class is to postpone importing pybind11
-    until it is actually installed, so that the ``get_include()``
-    method can be invoked. """
-
-    def __init__(self, user=False):
-        self.user = user
-
-    def __str__(self):
-        import pybind11
-        return pybind11.get_include(self.user)
-
 class BuildExtension(build_ext):
 
     def build_extensions(self):
@@ -36,9 +23,6 @@ class BuildExtension(build_ext):
 
 with io.open('README.rst', encoding='utf-8') as f:
     README = f.read()
-
-with io.open('requirements.txt', encoding='utf-8') as f:
-    REQUIREMENTS = f.read()
 
 setup(
     name='atomic',
@@ -60,17 +44,12 @@ setup(
         'Programming Language :: Python :: 3',
         'Topic :: Utilities',
     ],
-    setup_requires=REQUIREMENTS,
-    install_requires=REQUIREMENTS,
     test_suite="tests",
     ext_modules=[
         Extension(
             'atomic.detail',
             sources=['atomic/detail.cpp'],
-            include_dirs=[
-                GetPybindInclude(user=False),
-                GetPybindInclude(user=True)
-            ],
+            include_dirs=['pybind11/include'],
             language='c++'
         )
     ],
